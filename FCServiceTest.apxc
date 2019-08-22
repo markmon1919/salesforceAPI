@@ -1,6 +1,6 @@
 @isTest
 public class FCServiceTest {
-    //test    
+    
     private static String domain = [SELECT Domain__c FROM Identity_Proxy__mdt WHERE Label = 'OAuth'].Domain__c;
     
     @isTest(SeeAllData=true)
