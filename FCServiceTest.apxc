@@ -1,0 +1,164 @@
+@isTest
+public class FCServiceTest {
+    
+    private static String domain = [SELECT Domain__c FROM Identity_Proxy__mdt WHERE Label = 'OAuth'].Domain__c;
+    
+    @isTest(SeeAllData=true)
+    public static void syncCompanyPOSTTest(){
+        insert new Account(Name='Company 123');
+        User adminUser = [select id, TimeZoneSidKey, LocaleSidKey, EmailEncodingKey, ProfileId, LanguageLocaleKey from User where profile.Name ='System Administrator' and isActive = true limit 1];
+        
+        test.startTest();
+        system.runAs(adminUser){
+            MultiStaticResourceCalloutMock multimock = new MultiStaticResourceCalloutMock();
+            multimock.setStaticResource('callout/FCMockToken', 'FCMockToken');
+            multimock.setStaticResource(domain+'/callout/FCMockCompany', 'FCMockCompany');
+            multimock.setStatusCode(200);
+            Test.setMock(HttpCalloutMock.class, multimock);
+            
+            Account company = [SELECT Id, Name, Default_Persona__c, Name_Key__c, Description, Suppress_Terms_of_Use__c, Fitch_Connect_ID__c,Internal_Account__c, FC_Sync_Date_Time__c, FC_Synced__c FROM Account where Name = :'Company 123' limit 1];
+            FCService.syncCompany(company.Id);
+            company = [SELECT Id, Name, Default_Persona__c, Name_Key__c, Description, Suppress_Terms_of_Use__c, Fitch_Connect_ID__c,Internal_Account__c, FC_Sync_Date_Time__c, FC_Synced__c FROM Account where Id = :company.Id limit 1];
+            
+            System.assertEquals(company.Fitch_Connect_ID__c, 'ADMINISTRATORS');
+        }
+        test.stopTest();
+        
+    }
+    
+    @isTest(SeeAllData=true)
+    public static void syncCompanyPATCHTest(){
+        insert new Account(Name='Company 123', Fitch_Connect_ID__c='FitchId123');
+        User adminUser = [select id, TimeZoneSidKey, LocaleSidKey, EmailEncodingKey, ProfileId, LanguageLocaleKey from User where profile.Name ='System Administrator' and isActive = true limit 1];
+        
+        test.startTest();
+        system.runAs(adminUser){
+            MultiStaticResourceCalloutMock multimock = new MultiStaticResourceCalloutMock();
+            multimock.setStaticResource('callout/FCMockToken', 'FCMockToken');
+            multimock.setStaticResource(domain+'/callout/FCMockCompany/id', 'FCMockCompany');
+            multimock.setStatusCode(200);
+            Test.setMock(HttpCalloutMock.class, multimock);
+            
+            Account company = [SELECT Id, Name, Default_Persona__c, Name_Key__c, Description, Suppress_Terms_of_Use__c, Fitch_Connect_ID__c,Internal_Account__c, FC_Sync_Date_Time__c, FC_Synced__c FROM Account where Name = 'Company 123' limit 1];
+            String currentCompanyFitchConnectId = company.Fitch_Connect_ID__c;
+            FCService.syncCompany(company.Id);
+            company = [SELECT Id, Name, Default_Persona__c, Name_Key__c, Description, Suppress_Terms_of_Use__c, Fitch_Connect_ID__c,Internal_Account__c, FC_Sync_Date_Time__c, FC_Synced__c FROM Account where Id = :company.Id limit 1];
+            
+            System.assertEquals(company.Fitch_Connect_ID__c, currentCompanyFitchConnectId);
+        }
+        test.stopTest();
+        
+    }
+    
+    @isTest(SeeAllData=true)
+    public static void syncContactPOSTTest(){
+        insert new Contact(firstName='Person', lastName='123');
+        User adminUser = [select id, TimeZoneSidKey, LocaleSidKey, EmailEncodingKey, ProfileId, LanguageLocaleKey from User where profile.Name ='System Administrator' and isActive = true limit 1];
+        
+        test.startTest();
+        system.runAs(adminUser){
+            MultiStaticResourceCalloutMock multimock = new MultiStaticResourceCalloutMock();
+            multimock.setStaticResource('callout/FCMockToken', 'FCMockToken');
+            multimock.setStaticResource(domain+'/callout/FCMockContact', 'FCMockContact');
+            multimock.setStatusCode(200);
+            Test.setMock(HttpCalloutMock.class, multimock);
+            
+            Contact user = [SELECT Id, Name, Fitch_Connect_ID__c, FC_Sync_Date_Time__c, FC_Synced__c, UserName__c, Email, Full_Name__c, FirstName, Middle_Name__c, LastName, Status__c FROM Contact WHERE Name = 'Person 123' limit 1]; 
+            FCService.syncContact(user.Id);
+            user = [SELECT Id, Name, Fitch_Connect_ID__c, FC_Sync_Date_Time__c, FC_Synced__c, UserName__c, Email, Full_Name__c, FirstName, Middle_Name__c, LastName, Status__c FROM Contact WHERE Id = :user.Id limit 1]; 
+            
+            System.assertEquals(user.Fitch_Connect_ID__c, 'E5EU1BSJOC');
+        }
+        test.stopTest();
+        
+    }
+    
+    @isTest(SeeAllData=true)
+    public static void syncContactPATCHTest(){
+        insert new Contact(firstName='Person', lastName='123', Fitch_Connect_ID__c='FitchId123');
+        User adminUser = [select id, TimeZoneSidKey, LocaleSidKey, EmailEncodingKey, ProfileId, LanguageLocaleKey from User where profile.Name ='System Administrator' and isActive = true limit 1];
+        
+        test.startTest();
+        system.runAs(adminUser){
+            MultiStaticResourceCalloutMock multimock = new MultiStaticResourceCalloutMock();
+            multimock.setStaticResource('callout/FCMockToken', 'FCMockToken');
+            multimock.setStaticResource(domain+'/callout/FCMockContact/id', 'FCMockContact');
+            multimock.setStatusCode(200);
+            Test.setMock(HttpCalloutMock.class, multimock);
+            
+            Contact user = [SELECT Id, Name, Fitch_Connect_ID__c, FC_Sync_Date_Time__c, FC_Synced__c, UserName__c, Email, Full_Name__c, FirstName, Middle_Name__c, LastName, Status__c FROM Contact WHERE Name = 'Person 123' limit 1]; 
+            String currentContactFitchConnectId = user.Fitch_Connect_ID__c;
+            FCService.syncContact(user.Id);
+            user = [SELECT Id, Name, Fitch_Connect_ID__c, FC_Sync_Date_Time__c, FC_Synced__c, UserName__c, Email, Full_Name__c, FirstName, Middle_Name__c, LastName, Status__c FROM Contact WHERE Id = :user.Id limit 1]; 
+            
+            System.assertEquals(user.Fitch_Connect_ID__c, currentContactFitchConnectId);
+        }
+        test.stopTest();
+        
+    }
+    
+    @isTest(SeeAllData=true)
+    public static void syncUsersPOSTTest(){
+        Account company = new Account(Name='Company 123');
+        insert company;
+        FC_User_Group__c fcUserGroup = new FC_User_Group__c(Company__c=company.Id, Subscription_Type__c='Trial', Start_Date__c=Date.newInstance(2019, 1, 1), Expiration_Date__c=Date.newInstance(2019, 1, 20), Users_Contracted__c=100);
+        insert fcUserGroup;
+        Contact contact = new Contact(firstName='Person', lastName='123');
+        insert contact;
+        FC_User_Group_Contact__c fcUserGroupContact = new FC_User_Group_Contact__c(FC_User_Group__c=fcUserGroup.Id, Contact__c=contact.Id);
+        insert fcUserGroupContact;
+        User adminUser = [select id, TimeZoneSidKey, LocaleSidKey, EmailEncodingKey, ProfileId, LanguageLocaleKey from User where profile.Name ='System Administrator' and isActive = true limit 1];
+        
+        test.startTest();
+        system.runAs(adminUser){
+            MultiStaticResourceCalloutMock multimock = new MultiStaticResourceCalloutMock();
+            multimock.setStaticResource('callout/FCMockToken', 'FCMockToken');
+            multimock.setStaticResource(domain+'/callout/FCMockCompany', 'FCMockCompany');
+            multimock.setStaticResource(domain+'/callout/FCMockGroup', 'FCMockGroup');
+            multimock.setStaticResource(domain+'/callout/FCMockContact', 'FCMockContact');
+            multimock.setStaticResource(domain+'/callout/FCMockGroupRelationship', 'FCMockNoContent');
+            multimock.setStatusCode(200);
+            Test.setMock(HttpCalloutMock.class, multimock);
+            
+            FCService.syncUsers(fcUserGroup.Id);
+            fcUserGroupContact = [SELECT Id, Name, FC_User_Group__c, Fitch_Connect_ID__c, FC_Sync_Date_Time__c, FC_Synced__c, Contact__c, Status__c, Contact__r.Id, Contact__r.Name, Contact__r.UserName__c, Contact__r.Email, Contact__r.Full_Name__c, Contact__r.FirstName, Contact__r.Middle_Name__c, Contact__r.LastName, Contact__r.Status__c FROM FC_User_Group_Contact__c WHERE Id = :fcUserGroupContact.Id limit 1]; 
+            
+            System.assertEquals(true, fcUserGroupContact.Fitch_Connect_ID__c.contains('FitchId'));
+        }
+        test.stopTest();
+        
+    }
+    
+    @isTest(SeeAllData=true)
+    public static void syncUsersPATCHTest(){
+        Account company = new Account(Name='Company 123', Fitch_Connect_ID__c='FitchId123');
+        insert company;
+        FC_User_Group__c fcUserGroup = new FC_User_Group__c(Fitch_Connect_ID__c='FitchId124', Company__c=company.Id, Subscription_Type__c='Trial', Start_Date__c=Date.newInstance(2019, 1, 1), Expiration_Date__c=Date.newInstance(2019, 1, 20), Users_Contracted__c=100);
+        insert fcUserGroup;
+        Contact contact = new Contact(firstName='Person', lastName='123', Fitch_Connect_ID__c='FitchId125');
+        insert contact;
+        FC_User_Group_Contact__c fcUserGroupContact = new FC_User_Group_Contact__c(Fitch_Connect_ID__c='FitchId126', FC_User_Group__c=fcUserGroup.Id, Contact__c=contact.Id);
+        insert fcUserGroupContact;
+        User adminUser = [select id, TimeZoneSidKey, LocaleSidKey, EmailEncodingKey, ProfileId, LanguageLocaleKey from User where profile.Name ='System Administrator' and isActive = true limit 1];
+         
+        test.startTest();
+        system.runAs(adminUser){
+            MultiStaticResourceCalloutMock multimock = new MultiStaticResourceCalloutMock();
+            multimock.setStaticResource('callout/FCMockToken', 'FCMockToken');
+            multimock.setStaticResource(domain+'/callout/FCMockCompany/id', 'FCMockCompany');
+            multimock.setStaticResource(domain+'/callout/FCMockGroup/id', 'FCMockGroup');
+            multimock.setStaticResource(domain+'/callout/FCMockContact/id', 'FCMockContact');
+            multimock.setStaticResource(domain+'/callout/FCMockGroupRelationship', 'FCMockNoContent');
+            multimock.setStatusCode(200);
+            Test.setMock(HttpCalloutMock.class, multimock);
+            
+            String currentUserFitchConnectId = fcUserGroupContact.Fitch_Connect_ID__c;
+            FCService.syncUsers(fcUserGroup.Id);
+            fcUserGroupContact = [SELECT Id, Name, FC_User_Group__c, Fitch_Connect_ID__c, FC_Sync_Date_Time__c, FC_Synced__c, Contact__c, Status__c, Contact__r.Id, Contact__r.Name, Contact__r.UserName__c, Contact__r.Email, Contact__r.Full_Name__c, Contact__r.FirstName, Contact__r.Middle_Name__c, Contact__r.LastName, Contact__r.Status__c FROM FC_User_Group_Contact__c WHERE Id = :fcUserGroupContact.Id limit 1]; 
+            System.assertEquals(fcUserGroupContact.Fitch_Connect_ID__c, currentUserFitchConnectId);
+        }
+        test.stopTest();
+        
+    }
+    
+}

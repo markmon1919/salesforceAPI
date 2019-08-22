@@ -1,0 +1,40 @@
+<aura:component implements="flexipage:availableForAllPageTypes,force:hasRecordId,force:lightningQuickAction" access="global" controller="FCService">
+    
+    <aura:handler name="init" action="{!c.doInit}" value="{!this}" />
+    <aura:attribute name="groupName" type="String" />
+    <aura:attribute name="fitchId" type="String" default="" />
+    <aura:attribute name="synced" type="Boolean" default="" />
+    <aura:attribute name="syncTime" type="String" default=""/>
+    <aura:attribute name="users" type="List" default="[]"/>
+    
+    <aura:attribute name="spinner" type="Boolean" default="true" />
+    <aura:attribute name="syncingStatus" type="String" default="processing..." />
+    
+    <aura:attribute name="error" type="Object" default="{}" />
+    
+    <lightning:layout class="slds-wrap slds-container--center">
+        <div class="slds-align_absolute_center">
+            <p>Syncing Status : {!v.syncingStatus}</p>
+            
+            <aura:if isTrue="{! v.syncingStatus eq 'Not Synced'}">
+                <p>Error : {!v.error.error}</p>
+                <p>Message : {!v.error.message}</p>
+                <p>Status : {!v.error.status}</p>
+            </aura:if>
+  			<!-- <p>Record Name: {!v.groupName}</p>
+            <p>Fitch Connect Id: {!v.fitchId}</p>
+            <p>Fitch Check Synced?: {!v.synced}</p>
+            <p>Fitch Connect Sync Time: {!v.syncTime}</p> -->
+            <!--
+			<aura:if isTrue="{!v.fitchId != NULL}" >
+                <p>PATCHING</p>
+                <aura:set attribute="else">
+                    <p>NOT SYNCED</p>
+                </aura:set>
+            </aura:if>
+			-->
+        </div>
+    </lightning:layout>
+
+    <!-- <c:spinner spinner="{!v.spinner}"/> -->
+</aura:component>

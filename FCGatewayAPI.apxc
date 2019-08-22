@@ -1,0 +1,73 @@
+public without sharing class FCGatewayAPI {
+    
+    private Identity_Proxy__mdt oAuthMdt;   
+    private Identity_Proxy__mdt organizationMDt;
+    private Identity_Proxy__mdt userMdt;
+    private Identity_Proxy__mdt groupMdt;
+    private Identity_Proxy__mdt packageMdt ;
+    
+    public String identityDataTarget {get;set;}
+
+    
+    public FCGatewayAPI() {
+        init();
+    }
+    
+    private void init(){ 
+        try{
+            oAuthMdt = [SELECT Label, Username__c, Password__c, Authorization__c, Accept__c, Content_Type__c, Domain__c, Endpoint__c, Method__c FROM Identity_Proxy__mdt WHERE Label = 'OAuth'];
+            organizationMDt = [SELECT Accept__c, Content_Type__c, Domain__c, Endpoint__c FROM Identity_Proxy__mdt WHERE DeveloperName = 'Organization'];
+            userMdt = [SELECT Accept__c, Content_Type__c, Domain__c, Endpoint__c FROM Identity_Proxy__mdt WHERE DeveloperName = 'User'];
+            groupMdt = [SELECT Accept__c, Content_Type__c, Domain__c, Endpoint__c FROM Identity_Proxy__mdt WHERE DeveloperName = 'Group'];
+            packageMdt = [SELECT Accept__c, Content_Type__c, Domain__c, Endpoint__c FROM Identity_Proxy__mdt WHERE DeveloperName = 'Packages'];
+        }
+        catch(Exception e){}
+    }
+    
+    public HttpResponse execute(String endPoint, String method, String requestBody){
+        
+        Http http = new Http();
+        HttpRequest request = new HttpRequest();
+
+        request.setMethod(method);
+        request.setEndpoint(oAuthMdt.Domain__c + endPoint);
+        request.setTimeout(120000);
+        request = addAuthenticationHeaders(request);
+        
+        // identityDataTarget {'organization', 'group', 'user', 'package', 'client', 'auth0'} default : 'auth0'
+        request.setHeader('Content-Type', null == identityDataTarget ? oAuthMdt.Content_Type__c : identityDataTarget.equalsIgnoreCase('organization') ? organizationMDt.Content_Type__c : identityDataTarget.equalsIgnoreCase('group') ? groupMDt.Content_Type__c :  (identityDataTarget.equalsIgnoreCase('user') || identityDataTarget.equalsIgnoreCase('contact')) ? userMDt.Content_Type__c : identityDataTarget.equalsIgnoreCase('auth0') ? oAuthMdt.Content_Type__c : identityDataTarget.equalsIgnoreCase('package') ? packageMdt.Content_Type__c : oAuthMdt.Content_Type__c);
+        request.setHeader('Accept', null == identityDataTarget ? oAuthMdt.Accept__c : identityDataTarget.equalsIgnoreCase('organization') ? organizationMDt.Accept__c : identityDataTarget.equalsIgnoreCase('group') ? groupMDt.Accept__c :  (identityDataTarget.equalsIgnoreCase('user') || identityDataTarget.equalsIgnoreCase('contact')) ? userMDt.Accept__c : identityDataTarget.equalsIgnoreCase('auth0') ? oAuthMdt.Accept__c : identityDataTarget.equalsIgnoreCase('package') ? packageMdt.Accept__c : oAuthMdt.Accept__c);
+        
+        if(!String.isEmpty(requestBody)){
+            request.setBody(requestBody);
+        }
+            
+        /* checking StART */
+            System.debug('request.getBody() : '+request.getBody());
+            System.debug('request.getBodyAsBlob() : '+request.getBodyAsBlob());
+            System.debug('request.getEndpoint() : '+request.getEndpoint());
+            System.debug('request.getMethod() : '+request.getMethod());
+            System.debug('request.getHeader(\'Authorization\') : '+request.getHeader('Authorization'));
+            System.debug('request.getHeader(\'Accept\') : '+request.getHeader('Accept'));
+            System.debug('request.getHeader(\'Content-Type\') : '+request.getHeader('Content-Type'));
+        /* checking END */
+        
+        HttpResponse response    = new HttpResponse();
+      
+        response = http.send(request);
+        
+        /* checking StART */
+            System.debug('response.getStatusCode() : '+response.getStatusCode());
+            System.debug('response.getBody() : '+response.getBody());
+        /* checking END */
+            
+        return response;
+    }
+    
+    private HttpRequest addAuthenticationHeaders(HttpRequest request){ 
+        //String auth_token = FCUtility.parseToken();
+        String auth_token = ((FCObject.GET_AUTHORIZATION_TOKEN_OAUTH)JSON.deserialize(FCServices.getAuthorizationToken(), FCObject.GET_AUTHORIZATION_TOKEN_OAUTH.class)).access_token;
+        request.setHeader('Authorization', 'Bearer ' + auth_token);
+        return request;
+    }
+}

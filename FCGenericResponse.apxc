@@ -1,0 +1,23 @@
+public without sharing class FCGenericResponse {
+    @AuraEnabled public Object objWrap;
+    @AuraEnabled public Boolean hasError;
+    @AuraEnabled public String message;
+    @AuraEnabled public Integer statusCode;
+    //@AuraEnabled public List<Map<String,String>> errorList;
+    
+    /*public FCGenericResponse(Object objWrap){
+        this.objWrap = objWrap;
+    }*/
+    
+    public FCGenericResponse(Object objWrap, Boolean hasError, Integer statusCode, String message){
+        this.objWrap = objWrap;
+        this.hasError = hasError;
+        this.statusCode = statusCode;
+        this.message = message;
+    }
+    
+    /*public FCGenericResponse(List<Map<String,String>> errorList){
+        this.hasError = true;
+        this.errorList = errorList;
+    }*/
+}

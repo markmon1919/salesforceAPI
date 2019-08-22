@@ -1,0 +1,258 @@
+public without sharing class FCObject {
+    
+    //public String identityDataRequest {get;set;}
+    
+    public FCObject(){
+        data = new Fitch_ObjectEncapsulate();
+    }
+    
+    public FCObject(Account company){
+        data = new Fitch_ObjectEncapsulate();
+        data.attributes.name = company.Name;
+        data.attributes.defaultPersona = company.Default_Persona__c;
+        data.attributes.nameKey = company.Name_Key__c;
+        data.attributes.description = company.Description;
+        data.attributes.suppressTermsOfUse = company.Suppress_Terms_of_Use__c;
+        data.attributes.isInternal = company.Internal_Account__c;
+        //data.attributes.status = company.Status__c;
+        data.attributes.status = 'ENABLED'; // hardcoded -- value is Picklist in SF
+        data.attributes.agentId = company.Agent_ID_Formula__c;
+        //data.attributes.agentId = '1209278'; // hardcoded
+    }
+    
+    public FCObject(Account company, FC_User_Group__c userGroup){
+        data = new Fitch_ObjectEncapsulate();
+        data.attributes.name = userGroup.Name__c;
+        data.attributes.status = userGroup.Group_Status__c;
+        data.relationships.organization.data.type = 'organizations'; // hardcoded
+        data.relationships.organization.data.id = company.Fitch_Connect_ID__c;
+        //data.attributes.usersContracted = userGroup.Users_Contracted__c;
+        data.attributes.usersContracted = 100; // hardcoded
+        data.attributes.startDate = String.valueOf(userGroup.Start_Date__c);
+        //data.attributes.startDate = '2016-10-24'; // hardcoded
+        data.attributes.expirationDate = String.valueOf(userGroup.Expiration_Date__c);
+        //data.attributes.expirationDate = '2016-11-07'; // hardcoded
+        data.attributes.groupType = userGroup.Subscription_Type__c.toUpperCase();
+        //data.attributes.groupType = 'TRIAL'; // hardcoded
+    }
+    
+    public FCObject(Account company, FC_User_Group_Contact__c user){
+        data = new Fitch_ObjectEncapsulate();
+        data.id = user.Fitch_Connect_ID__c;
+        data.attributes.password = null;
+        data.attributes.username = user.Contact__r.UserName__c; // {"errors":[{"error":"DUPLICATE_USERNAME","message":"Username already exists.","status":409,"timestamp":"1565979245497"}]}
+        //fo.data.attributes.username = 'test.username@camote.com'; // {"errors":[{"error":"DUPLICATE_EMAIL","message":"Email already exists.","status":409,"timestamp":"1565978471262"}]}
+        //data.attributes.username = 'test.username'; // hardcoded good
+        data.attributes.email = user.Contact__r.Email; 
+        data.relationships.organization.data.id = company.Fitch_Connect_ID__c;
+        data.attributes.firstName = user.Contact__r.FirstName;
+        data.attributes.middleName = user.Contact__r.Middle_Name__c;
+        data.attributes.lastName = user.Contact__r.LastName;
+        data.attributes.status = user.Contact__r.Status__c;
+    }
+    
+    public FCObject(Contact user){
+        data = new Fitch_ObjectEncapsulate();
+        data.id = user.Fitch_Connect_ID__c;
+        data.attributes.password = null;
+        data.attributes.username = user.UserName__c; // {"errors":[{"error":"DUPLICATE_USERNAME","message":"Username already exists.","status":409,"timestamp":"1565979245497"}]}
+        //fo.data.attributes.username = 'test.username@camote.com'; // {"errors":[{"error":"DUPLICATE_EMAIL","message":"Email already exists.","status":409,"timestamp":"1565978471262"}]}
+        //data.attributes.username = 'test.username'; // hardcoded good
+        data.attributes.email = user.Email; 
+        //data.relationships.organization.data.id = company.Fitch_Connect_ID__c; // no need if we doing it directly
+        data.attributes.firstName = user.FirstName;
+        data.attributes.middleName = user.Middle_Name__c;
+        data.attributes.lastName = user.LastName;
+        data.attributes.status = user.Status__c;
+    }
+    
+    public FCObject(Product2 fcPackage){
+        data = new Fitch_ObjectEncapsulate();
+        //data.id = fcPackage.Fitch_Connect_ID__c;
+    }
+    
+    public Fitch_ObjectEncapsulate data;
+    
+    public class Fitch_ObjectEncapsulate {
+        
+        public Fitch_ObjectEncapsulate(){
+            attributes = new Attributes();
+            relationships = new Relationships();
+        }
+        
+        public String type;
+        public String id;
+        public Attributes attributes;
+        
+        public Relationships relationships;
+    }
+    
+    public class Attributes {
+        
+        public Attributes(){
+            customData = new CustomData();
+        }
+        
+        public String name;
+        public String description;
+        public CustomData customData;
+        public String status;
+        
+        public String defaultPersona;
+        public String nameKey;
+        public Boolean suppressTermsOfUse;
+        public Boolean isInternal;
+        
+        public String password;
+        public String username;
+        public String email;
+        public String firstName;
+        public String middleName;
+        public String lastName;
+        
+        public Integer usersContracted;
+        
+        public String agentId;
+        public String startDate;
+        public String expirationDate;
+        
+        public String groupType;
+    }
+    
+    public class CustomData {
+        
+        public CustomData(){
+            masterContracts = new List<ContractsEncapsulate>();
+        }
+        
+        public String country;
+        public List<ContractsEncapsulate> masterContracts;
+        public String agentId;
+        public String address3;
+        public String address2;
+        public String city;
+        public String address1;
+        public String modifiedAt;
+        public String isFisclient;
+        public String isBMonly;
+        public String isInternal;
+        public String createdAt;
+        public String accountManger;
+        public String entityStatus;
+        public String postCode;
+        public String href;
+        public String id;
+        public String salesDirector;
+        public Integer usersContracted;
+    }
+    
+    public class Contracts {
+        
+        public Contracts(){
+            
+        }
+        
+        public String contract;
+        public String id;
+    }
+    
+    public class ContractsEncapsulate{
+        
+        public ContractsEncapsulate(){
+            contracts = new List<Contracts>();
+        }
+        
+        public String id;
+        public String masterContract;
+        public List<Contracts> contracts;
+    }
+    
+    public class utility{
+        
+    }
+    
+    public class Relationships{
+        public Organization organization;
+        public Relationships(){
+            organization = new Organization();
+        }
+    }
+    
+    public class Organization{
+        public OrganizationEncapsulate data;
+        public Organization(){
+            data = new OrganizationEncapsulate();
+        }
+    }
+    
+    public class OrganizationEncapsulate{
+        public String type;
+        public String id;
+    }
+    
+    public class ADD_USER_RELATIONSHIPS_GROUP{
+        public List<String> idList {get;set;}
+        public String type {get;set;}
+        
+        public ADD_USER_RELATIONSHIPS_GROUP(String type, List<String> idList){
+            this.idList = idList;
+            this.type = type;
+        }
+        
+        public override String toString(){
+            String request = '';
+            
+            request = '{'+
+                            '"data": [';
+            for(String id : idList){
+                request = request +(idList.indexOf(id) == 0 ? '' : ',')+
+                                            '{'+
+                                            '"type": "'+type+'",'+
+                                            '"id": "'+id+'"'+
+                                            '}';
+            }
+            
+            request = request +
+                                        ']'+
+                            '}';
+            return request; 
+        }
+    }
+    
+    public class GET_AUTHORIZATION_TOKEN_OAUTH{
+        public String access_token;
+        public String token_type;
+        public String expires_in;
+        public String scope;
+        public String iss;
+        public String iat;
+        public String jti;
+    }
+    
+    public class ERRORS{
+        public List<ERROR> errors;
+    }
+    
+    public class ERROR{
+        public String error;
+        public String message;
+        public Integer status;
+        public String timestamp;
+    }
+    
+    public class FCObjectList {
+        public List<Fitch_ObjectEncapsulate> data;
+    }
+    
+    public override String toString(){
+        /*if(null==identityDataRequest){
+            return '';
+        }else{
+            if(identityDataRequest.equalsIgnoreCase('ADD_USER_RELATIONSHIPS__GROUP')){
+                
+            }
+        }*/
+        return '';
+    }
+    
+}

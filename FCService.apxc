@@ -1,0 +1,240 @@
+public without sharing class FCService {
+    
+    private static Identity_Proxy__mdt oauthMdt = [SELECT Label, Username__c, Password__c, Authorization__c, Accept__c, Content_Type__c, Domain__c, Endpoint__c, Method__c FROM Identity_Proxy__mdt WHERE Label = 'OAuth'];
+    private static Identity_Proxy__mdt organizationMdt = [SELECT Accept__c, Content_Type__c, Domain__c, Endpoint__c FROM Identity_Proxy__mdt WHERE DeveloperName = 'Organization'];
+    private static Identity_Proxy__mdt userMdt = [SELECT Accept__c, Content_Type__c, Domain__c, Endpoint__c FROM Identity_Proxy__mdt WHERE DeveloperName = 'User'];
+    private static Identity_Proxy__mdt groupMdt = [SELECT Accept__c, Content_Type__c, Domain__c, Endpoint__c FROM Identity_Proxy__mdt WHERE DeveloperName = 'Group'];
+    private static Identity_Proxy__mdt packageMdt = [SELECT Accept__c, Content_Type__c, Domain__c, Endpoint__c FROM Identity_Proxy__mdt WHERE DeveloperName = 'Packages'];
+    //private static List<Map<String,String>> errorList = new List<Map<String,String>>();
+    
+    @AuraEnabled
+    //public static void syncCompany(String recordId) {
+    public static FCGenericResponse syncCompany(String recordId) {
+        
+        Account company = [SELECT Id, Name, Default_Persona__c, Name_Key__c, Description, Suppress_Terms_of_Use__c, Internal_Account__c, Status__c, Agent_ID_Formula__c, Fitch_Connect_ID__c, FC_Sync_Date_Time__c, FC_Synced__c FROM Account WHERE Id = :recordId];
+        /* this process block contains creation and updating Organization on Fitch Integration */
+        if (String.isEmpty(company.Fitch_Connect_ID__c)) {
+            System.debug('POST Organization');
+            FCGenericResponse result = performCallout('POST', Test.isRunningTest() ? '/callout/FCMockCompany' : organizationMdt.Endpoint__c, 'organization', new Map<String, Object>{'company' => company}, null);
+            if(hasIntegrationError(result)){
+                return result;
+            }
+            FCObject fo = (FCObject) result.objWrap;
+            company.Fitch_Connect_ID__c = fo.data.id;
+            company.FC_Synced__c = true;
+            company.FC_Sync_Date_Time__c = DateTime.now();
+        } else {
+            System.debug('PATCH Organization');
+            company.FC_Synced__c = true;
+            company.FC_Sync_Date_Time__c = DateTime.now();
+            FCGenericResponse result = performCallout('PUT', Test.isRunningTest() ? '/callout/FCMockCompany/id' : organizationMdt.Endpoint__c+'/'+company.Fitch_Connect_ID__c, 'organization', new Map<String, Object>{'company' => company}, null);
+            if(hasIntegrationError(result)){
+                return result;
+            }
+        }  
+        
+        upsert company; // Organization : 1
+        return new FCGenericResponse(null,false,0,'');
+    }
+    
+    @AuraEnabled
+    //public static void syncContact(String recordId) {
+    public static FCGenericResponse syncContact(String recordId) {
+
+        Contact user = [SELECT Id, Name, Fitch_Connect_ID__c, FC_Sync_Date_Time__c, FC_Synced__c, UserName__c, Email, Full_Name__c, FirstName, Middle_Name__c, LastName, Status__c FROM Contact WHERE Id = :recordId]; 
+        /* this process block contains creation and updating User on Fitch Integration */
+        if(String.isEmpty(user.Fitch_Connect_ID__c)){
+            System.debug('POST Contact');
+            FCGenericResponse result = performCallout('POST', Test.isRunningTest() ? '/callout/FCMockContact' : userMdt.Endpoint__c, 'contact', new Map<String, Object>{'contact' => user}, null);
+            if(hasIntegrationError(result)){
+                return result;
+            }
+            FCObject fo = (FCObject) result.objWrap;
+            user.Fitch_Connect_ID__c = fo.data.id;
+            user.FC_Synced__c = true;
+            user.FC_Sync_Date_Time__c = DateTime.now();
+        }else{
+            System.debug('PATCH Contact');
+            user.FC_Synced__c = true;
+            user.FC_Sync_Date_Time__c = DateTime.now();
+            FCGenericResponse result = performCallout('PUT', Test.isRunningTest() ? '/callout/FCMockContact/id' :userMdt.Endpoint__c+'/'+user.Fitch_Connect_ID__c, 'contact', new Map<String, Object>{'contact' => user}, null);
+            if(hasIntegrationError(result)){
+                return result;
+            }
+        }
+        
+        upsert user; // User : 1
+        return new FCGenericResponse(null,false,0,'');
+    } 
+    
+    @AuraEnabled
+    //public static void syncUsers(String recordId) {
+    public static FCGenericResponse syncUsers(String recordId) {
+        
+        FC_User_Group__c userGroup = [SELECT Id, Name, Name__c, Group_Status__c, Start_Date__c, Expiration_Date__c, Subscription_Type__c, Fitch_Connect_ID__c, FC_Sync_Date_Time__c, FC_Synced__c, Users_Contracted__c, Company__c FROM FC_User_Group__c WHERE Id = :recordId];
+        Account company = [SELECT Id, Name, Default_Persona__c, Name_Key__c, Description, Suppress_Terms_of_Use__c, Internal_Account__c, Status__c, Agent_ID_Formula__c, Fitch_Connect_ID__c, FC_Sync_Date_Time__c, FC_Synced__c FROM Account WHERE Id = :userGroup.Company__c];
+        List<FC_User_Group_Contact__c> userGroupContactList = [SELECT Id, Name, FC_User_Group__c, Fitch_Connect_ID__c, FC_Sync_Date_Time__c, FC_Synced__c, Contact__c, Status__c, Contact__r.Id, Contact__r.Name, Contact__r.UserName__c, Contact__r.Email, Contact__r.Full_Name__c, Contact__r.FirstName, Contact__r.Middle_Name__c, Contact__r.LastName, Contact__r.Status__c FROM FC_User_Group_Contact__c WHERE FC_User_Group__c = :recordId]; 
+        List<FC_User_Group_Products__c> userGroupProductList = [SELECT Id, Name, FC_User_Group__c, Product__c, FC_Synced__c, FC_Packages__c, Product__r.ProductCode FROM FC_User_Group_Products__c WHERE FC_User_Group__c = :userGroup.Id];
+        List<String> idList = new List<String>();
+        List<Contact> contactList = new List<Contact>(); 
+        List<FC_User_Group_Products__c> userGroupProductListToBeUpdate = new List<FC_User_Group_Products__c>();
+        
+        /* this process block contains creation and updating Organization on Fitch Integration */
+        if (String.isEmpty(company.Fitch_Connect_ID__c)) {
+            System.debug('POST Organization');
+            FCGenericResponse result = performCallout('POST', Test.isRunningTest() ? '/callout/FCMockCompany' : organizationMdt.Endpoint__c, 'organization', new Map<String, Object>{'company' => company}, null);
+            if(hasIntegrationError(result)){
+                return result;
+            }
+            FCObject fo = (FCObject) result.objWrap;
+            company.Fitch_Connect_ID__c = fo.data.id;
+            company.FC_Synced__c = true;
+            company.FC_Sync_Date_Time__c = DateTime.now();
+        } else {
+            System.debug('PATCH Organization');
+            company.FC_Synced__c = true;
+            company.FC_Sync_Date_Time__c = DateTime.now();
+            FCGenericResponse result = performCallout('PUT', Test.isRunningTest() ? '/callout/FCMockCompany/id' : organizationMdt.Endpoint__c+'/'+company.Fitch_Connect_ID__c, 'organization', new Map<String, Object>{'company' => company}, null);
+            if(hasIntegrationError(result)){
+                    return result;
+            }
+        }
+        
+        /* this process block contains creation and updating Group on Fitch Integration */
+        if (String.isEmpty(userGroup.Fitch_Connect_ID__c)) {
+            System.debug('POST Group');
+            FCGenericResponse result = performCallout('POST', Test.isRunningTest() ? '/callout/FCMockGroup' : groupMdt.Endpoint__c, 'group', new Map<String, Object>{'company' => company, 'userGroup' => userGroup}, null);
+            if(hasIntegrationError(result)){
+                return result;
+            }
+            FCObject fo = (FCObject) result.objWrap;
+            userGroup.Fitch_Connect_ID__c = fo.data.id;
+            userGroup.FC_Synced__c = true;
+            userGroup.FC_Sync_Date_Time__c = DateTime.now();
+        } else {
+           System.debug('PATCH Group');
+            userGroup.FC_Synced__c = true;
+            userGroup.FC_Sync_Date_Time__c = DateTime.now();
+           FCGenericResponse result = performCallout('PUT', Test.isRunningTest() ? '/callout/FCMockGroup/id' : groupMdt.Endpoint__c+'/'+userGroup.Fitch_Connect_ID__c, 'group', new Map<String, Object>{'company' => company, 'userGroup' => userGroup}, null);
+            if(hasIntegrationError(result)){
+                return result;
+            }
+        }
+        
+        /* this process block contains creation and updating User/s on Fitch Integration */
+        for(FC_User_Group_Contact__c user: userGroupContactList){
+            if(String.isEmpty(user.Fitch_Connect_ID__c)){
+                System.debug('POST User');
+                FCGenericResponse result = performCallout('POST', Test.isRunningTest() ? '/callout/FCMockContact' : userMdt.Endpoint__c, 'user', new Map<String, Object>{'company' => company, 'user' => user},null);
+                if(hasIntegrationError(result)){
+                    return result;
+                }
+                FCObject fo = (FCObject) result.objWrap;
+                user.Fitch_Connect_ID__c = Test.isRunningTest() ? 'FitchId'+userGroupContactList.indexOf(user) : fo.data.id;
+                user.FC_Synced__c = true;
+                user.FC_Sync_Date_Time__c = DateTime.now();
+                idList.add(user.Fitch_Connect_ID__c);   
+                contactList.add(new Contact(Id=user.Contact__c, Fitch_Connect_ID__c = user.Fitch_Connect_ID__c, FC_Synced__c = true, FC_Sync_Date_Time__c=DateTime.now()));
+            }else{
+                System.debug('PATCH User');
+                FCGenericResponse result = performCallout('PUT', Test.isRunningTest() ? '/callout/FCMockContact/id' : userMdt.Endpoint__c+'/'+user.Fitch_Connect_ID__c, 'user', new Map<String, Object>{'company' => company, 'user' => user}, null);
+                if(hasIntegrationError(result)){
+                    return result;
+                }
+                user.FC_Synced__c = true;
+                user.FC_Sync_Date_Time__c = DateTime.now();
+                idList.add(user.Fitch_Connect_ID__c);  
+                contactList.add(new Contact(Id=user.Contact__c, Fitch_Connect_ID__c = user.Fitch_Connect_ID__c,  FC_Synced__c = true, FC_Sync_Date_Time__c=DateTime.now()));
+            }
+        }
+        
+        /* [FOC-34] Integration - Add/Remove Packages from User Group */
+        for(FC_User_Group_Products__c ugp : userGroupProductList){
+            if(String.isEmpty(ugp.Product__r.ProductCode)){
+                
+                FCObject.ERROR error = new FCObject.ERROR();
+                error.error = ugp.Name+' Product Code error';
+                error.message = 'Product Code is Empty';
+                error.status = -1;
+                FCObject.ERRORS errors = new FCObject.ERRORS();
+                errors.errors = new List<FCObject.ERROR>();
+                errors.errors.add(error);
+                return new FCGenericResponse(JSON.deserializeUntyped(JSON.serialize(errors)), true, 0,'Product Code is Empty');
+            }else{
+                System.debug('GET Package');
+                FCGenericResponse result = performCallout('GET', Test.isRunningTest() ? '/callout/FCMockPackage/list' : packageMdt.Endpoint__c+'?filter[packages][sapProductCode]='+ugp.Product__r.ProductCode+'&fields[packages]=sapProductCode', 'package', new Map<String,Object>(), true);
+                FCObject.FCObjectList packages = (FCObject.FCObjectList) result.objWrap;
+                
+                if(packages.data.isEmpty()){
+                    FCObject.ERROR error = new FCObject.ERROR();
+                    error.error = ugp.Name+' Product Code : '+ugp.Product__r.ProductCode;
+                    error.message = 'Associated Package from Fitch is Empty';
+                    error.status = -1;
+                    FCObject.ERRORS errors = new FCObject.ERRORS();
+                    errors.errors = new List<FCObject.ERROR>();
+                    errors.errors.add(error);
+                    return new FCGenericResponse(JSON.deserializeUntyped(JSON.serialize(errors)), true, 0,'Associated Package from Fitch is Empty');
+                }
+                
+                String packageSeries = '';
+                List<String> packageidList = new List<String>();
+                for(FCObject.Fitch_ObjectEncapsulate pack: packages.data){
+                    packageSeries =  packageSeries+(packages.data.indexOf(pack) == 0 ? '' : ', ')+pack.id;
+                    packageidList.add(pack.id);
+                }
+                
+                System.debug('POST Group-Package Relationship');
+                performCallout('POST', Test.isRunningTest() ? '/callout/FCMockGroupRelationship' : groupMdt.Endpoint__c + '/' + userGroup.Fitch_Connect_ID__c + '/relationships/packages', 'group', new Map<String, Object>{'relationship' => new FCObject.ADD_USER_RELATIONSHIPS_GROUP('packages', packageidList)}, null);
+                
+                ugp.FC_Synced__c = true;
+                ugp.FC_Packages__c = packageSeries;
+                ugp.FC_Sync_Date_Time__c = DateTime.now();
+                userGroupProductListToBeUpdate.add(ugp);
+            }
+        }
+        
+        
+        /* this process block add collection of userGroupContact to the Group */
+        performCallout('POST', Test.isRunningTest() ? '/callout/FCMockGroupRelationship' : groupMdt.Endpoint__c + '/' + userGroup.Fitch_Connect_ID__c + '/relationships/users', 'group', new Map<String, Object>{'relationship' => new FCObject.ADD_USER_RELATIONSHIPS_GROUP('users', idList)}, null);
+        
+        upsert company; // Organization : 1
+        upsert userGroup; // Group : 1
+        upsert userGroupContactList; // user/s : many
+        upsert contactList; // user/s : many
+        upsert userGroupProductListToBeUpdate; // package/s : many
+        
+        return new FCGenericResponse(null,false,0,'');
+    }
+    
+    private static FCGenericResponse performCallout(String method, String endpoint, String identityDataTarget, Map<String, Object> objMap, Boolean isList) {
+        
+        FCServiceAPI service = new FCServiceAPI();
+        service.method = method;
+        service.endPoint = endpoint;
+        service.isJsonString = objMap.containsKey('relationship');
+        service.identityDataTarget = identityDataTarget;
+        service.objWrap = identityDataTarget.equalsIgnoreCase('organization') ? new FCObject((Account)objMap.get('company')) :
+                                    identityDataTarget.equalsIgnoreCase('group') ? (objMap.containsKey('relationship') ?  objMap.get('relationship')  : new FCObject((Account)objMap.get('company'),(FC_User_Group__c)objMap.get('userGroup'))):
+                                    identityDataTarget.equalsIgnoreCase('user') ? new FCObject((Account)objMap.get('company'),(FC_User_Group_Contact__c)objMap.get('user')):
+                                    identityDataTarget.equalsIgnoreCase('contact') ? new FCObject((Contact)objMap.get('contact')):
+                                    //identityDataTarget.equalsIgnoreCase('package') ? new FCObject((Product2)objMap.get('package')):null;
+                                    identityDataTarget.equalsIgnoreCase('package') ? null : null;
+        service.isExpectedResponseInAformOfList = isList;
+        service.Fitch_GenericResponse();
+        
+        return service.genericWrapperResponse;
+    }
+    
+    private static Boolean hasIntegrationError(FCGenericResponse result){
+        if(result.hasError){
+            if(result.statusCode == 409){
+                result.message = 'Username already exists.';
+                return true;
+            }
+            result.message = 'Error occured status code : '+result.statusCode;
+            return true;
+        }
+        return false;
+    }
+    
+}

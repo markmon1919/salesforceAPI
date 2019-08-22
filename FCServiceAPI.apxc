@@ -1,0 +1,72 @@
+public without sharing class FCServiceAPI {
+    
+    public FCGenericResponse genericWrapperResponse{get; set;}
+    public Object objWrap {get; set;}
+    public FCGatewayAPI gateway {get;set;}
+    public String method {get;set;}
+    public String endPoint {get;set;}
+    
+    public Boolean isJsonString {get;set;}
+    public String identityDataTarget {get;set;}
+    
+    public Boolean isExpectedResponseInAformOfList {get;set;}
+    
+    public FCServiceAPI(){
+        gateway = new FCGatewayAPI();
+    }
+
+    public void Fitch_GenericResponse(){
+        String requestBody =  null != isJsonString && isJsonString ? String.valueOf(objWrap) : objWrapToJSONString(objWrap);
+        gateway.identityDataTarget = this.identityDataTarget;
+        
+        HttpResponse response =  gateway.execute(endPoint, method, requestBody);
+        
+        Set<Integer> OK_STATUS = new Set<Integer>{200, 201, 204};
+        if(!OK_STATUS.contains(response.getStatusCode())){
+            genericWrapperResponse = new FCGenericResponse(JSON.deserializeUntyped(response.getBody()),true,response.getStatusCode(),'' );
+        }else{
+			genericWrapperResponse = new FCGenericResponse(jsonStringToObjWrap(response),false,response.getStatusCode(),'' );
+		}
+    }
+    
+    public String objWrapToJSONString(Object objWrap){
+        if(objWrap instanceof FCObject){
+            return JSON.serialize((FCObject) objWrap);
+        }else if(objWrap instanceof FCObject.ADD_USER_RELATIONSHIPS_GROUP){
+            return String.valueOf((FCObject.ADD_USER_RELATIONSHIPS_GROUP) objWrap);
+        }
+        return null;
+    }
+    
+    /*public Object jsonStringToObjWrap(HttpResponse response){
+        if(String.isEmpty(response.getBody())){
+            return null;
+        }else if(JSON.deserialize(response.getBody(), FCObject.class) instanceof FCObject){
+            return JSON.deserialize(response.getBody(), FCObject.class);
+        }else if(JSON.deserialize(response.getBody(), FCObject.ERRORS.class) instanceof FCObject.ERRORS){
+            return JSON.deserialize(response.getBody(), FCObject.ERRORS.class);
+        }
+        //return response.getBody();
+        return null;
+    }*/  
+    
+    public Object jsonStringToObjWrap(HttpResponse response){
+        Set<String> identityDataSet = new Set<String>{'organization', 'user', 'group','package','contact'};
+        if(String.isEmpty(response.getBody())){
+            return null;
+        }else{
+            if(null != isExpectedResponseInAformOfList && isExpectedResponseInAformOfList){
+                if(identityDataSet.contains(this.identityDataTarget)){
+                    return JSON.deserialize(response.getBody(), FCObject.FCObjectList.class);
+                }
+            }else{
+                if(identityDataSet.contains(this.identityDataTarget)){
+                    return JSON.deserialize(response.getBody(), FCObject.class);
+                }
+            }
+        }
+        //return response.getBody();
+        return null;
+    }
+    
+}
